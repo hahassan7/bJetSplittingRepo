@@ -28,6 +28,22 @@ using std::vector;
 const int MAXJETS=200;
 const double PI=3.1415926;
 
+const int pthatBins[8] = {50,80,100,120,170,220,280,99999};
+const double xsecs[8] = {3.778E-03, 4.412E-04, 1.511E-04, 6.147E-05, 1.018E-05, 2.477E-06, 6.160E-07, 0};
+//const int pthatEntries[7] = {176770, 195948, 193735, 191889, 179361, 194037, 265958}; //all pthats
+//const int pthatEntries[7] = {740218, 693350, 610162, 1054000, 729448, 182013, 61566}; //big qcd-jet production
+//const int pthatEntries[7] = {0, 16, 170395, 188643, 178892, 193905, 265909}; //pthat80,120,etc only, no pthat100 bin
+
+const int pthatEntries[7] = {439251, 366255, 411245, 651466, 475354, 265898, 87628}; //all pthat, pythia 6
+//const int pthatEntries[8] = {0, 439251, 366255, 411245, 651466, 475354, 235375, 77559}; //pythia 6, 3 pthat220 jobs failed
+
+//const int pthatEntries[7] = {122407, 157171, 211615, 410730, 366838, 373693, 145324}; //mu filtered samples
+//const double mujetFracs[7] = {0.0247, 0.0375, 0.0480, 0.0530, 0.0691, 0.0691, 0.0691}; 
+const double mujetFracs[7] = {0.133, 0.137, 0.136, 0.137, 0.139, 0.139, 0.139};
+
+const double bjetFracs[7] = {0.058, 0.064, 0.075, 0.084, 0.084, 0.084, 0.084};
+const int bjetPthatEntries[7] = {434706, 470484, 476877, 478550, 452606, 112199, 36883};
+
 double getDR(double eta1, double phi1, double eta2, double phi2){
 	//project phi's to 0->pi
 	phi1 = TMath::ACos(TMath::Cos(phi1));
@@ -64,11 +80,15 @@ void formatHistos(TH1D **histos){
 	histos[5]->SetFillColor(4); histos[5]->SetTitle("light subjets");
 }
 
-void scanGSPevents(){
+void scanGSPevents(int nFiles=2000){
 	
 	const bool ispp = true;
-	const bool isMC = true;
-	
+	const bool isMC = false;
+        const bool doCaloJets = false;
+        const bool isbJet = false;
+        const bool doMuFilter = false;
+        const bool doDMesonWeight = false;
+
 	const int nPt = 4;
 	double ptBins[nPt+1] = {100, 120, 160, 250, 9999};
 	
@@ -115,79 +135,113 @@ void scanGSPevents(){
 	int nref;
 	float jtpt[MAXJETS], jteta[MAXJETS], jtphi[MAXJETS], refpt[MAXJETS];
 	int refparton_flavorForB[MAXJETS], nsvtx[MAXJETS];
-	float discr_csvV2[MAXJETS], discr_prob[MAXJETS];
-	vector<vector<float> > *jtSubJetPt=0, *jtSubJetEta=0, *jtSubJetPhi=0;
+	float discr_csvV2[MAXJETS], ndiscr_csvV2[MAXJETS], discr_prob[MAXJETS];
+        float pthat;
+	float vz;
+        vector<vector<float> > *jtSubJetPt=0, *jtSubJetEta=0, *jtSubJetPhi=0;
 	vector<vector<float> > *jtSubJetPartonFlavor=0, *jtSubJetHadronFlavor=0;
-	vector<vector<float> > *jtSubJetCSV=0, *jtSubJetJP=0;
+	vector<vector<float> > *jtSubJetCSV=0, *jtSubJetJP=0, *jtSubJetNegCSV=0;
+        vector<vector<float> > *jtSubJetRefPt=0, *jtSubJetRefEta=0, *jtSubJetRefPhi=0;
 	int refparton_flavorProcess[MAXJETS];
 	float jtHadronFlavor[MAXJETS];
 	float jtm[MAXJETS];
 	vector<vector<float> >*svtxm=0, *svtxpt=0, *svtxdl=0, *svtxdls=0;
 	vector<vector<int> >*svtxntrk=0, *jtSubJetVtxType=0;
-	
+
 	vector<vector<vector<float> > > *jtSubJetHadronDR=0, *jtSubJetPartonDR=0, *jtSubJetPartonPt=0, *jtSubJetPartonPdg=0;
 	vector<vector<vector<float> > > *jtSubJetHadronPt=0, *jtSubJetHadronEta=0, *jtSubJetHadronPhi=0, *jtSubJetHadronPdg=0;
 	
 	vector<vector<vector<float> > > *jtSubJetSvtxm=0, *jtSubJetSvtxpt=0, *jtSubJetSvtxeta=0, *jtSubJetSvtxphi=0;
 	vector<vector<vector<float> > > *jtSubJetSvtxNtrk=0, *jtSubJetSvtxdl=0, *jtSubJetSvtxdls=0;
 	
+        vector<float> *eta=0, *phi=0;
+        vector<int> *pdg=0;
+        vector<vector<int> > *motherIdx=0;
+        int nparts;
+
 	///*************************************************************//
 	
-	double t_jtpt, t_jteta, t_jtphi, t_discr_csvV2, t_jtSubJetPt1, t_jtSubJetPt2, t_jtSubJetEta1, t_jtSubJetEta2, t_refpt;
+	double t_jtpt, t_jteta, t_jtphi, t_discr_csvV2, t_ndiscr_csvV2, t_jtSubJetPt1, t_jtSubJetPt2, t_jtSubJetEta1, t_jtSubJetEta2, t_refpt;
 	double t_jtSubJetPhi1, t_jtSubJetPhi2, t_jtSubJetCSV1, t_jtSubJetCSV2, t_jtSubJetdR, t_discr_prob;
 	double t_jtSubJetVtxType1, t_jtSubJetVtxType2, t_minCSV, t_jtSubJetJP1, t_jtSubJetJP2, t_minJP;
-        double t_jtSubJetHadronDR1, t_jtSubJetHadronDR2;
-	int t_jtHadronFlavor, t_jtSubJetHadronFlavor1, t_jtSubJetHadronFlavor2;
-	int hiBin;
-	
+        double t_jtSubJetNegCSV1, t_jtSubJetNegCSV2;
+        double t_jtSubJetSvtxm1, t_jtSubJetSvtxm2, t_svtxm;
+	double t_jtSubJetHadronDR1, t_jtSubJetHadronDR2, t_jtSubJetHadronPt1, t_jtSubJetHadronPt2;
+        int t_jtHadronFlavor, t_jtSubJetHadronFlavor1, t_jtSubJetHadronFlavor2;
+        double t_jtSubJetRefPt1, t_jtSubJetRefPt2, t_jtSubJetRefEta1, t_jtSubJetRefEta2, t_jtSubJetRefPhi1, t_jtSubJetRefPhi2;
+	int hiBin, t_dMesonChannel;
+        double weight;
+        double t_muPt;
+
 	TFile *fout = new TFile("gspTreeOut.root","recreate");
 	TTree *gspTree = new TTree("gspTree","");
 	gspTree->Branch("jtpt",&t_jtpt);
 	gspTree->Branch("jteta",&t_jteta);
 	gspTree->Branch("jtphi",&t_jtphi);
 	gspTree->Branch("discr_csvV2",&t_discr_csvV2);
-	gspTree->Branch("discr_prob", &t_discr_prob);
+	gspTree->Branch("ndiscr_csvV2",&t_ndiscr_csvV2);
+        gspTree->Branch("discr_prob", &t_discr_prob);
+        gspTree->Branch("svtxm",&t_svtxm);
 	gspTree->Branch("jtSubJetPt1",&t_jtSubJetPt1);
 	gspTree->Branch("jtSubJetPt2",&t_jtSubJetPt2);
 	gspTree->Branch("jtSubJetEta1", &t_jtSubJetEta1);
 	gspTree->Branch("jtSubJetPhi1", &t_jtSubJetPhi1);
 	gspTree->Branch("jtSubJetEta2", &t_jtSubJetEta2);
 	gspTree->Branch("jtSubJetPhi2", &t_jtSubJetPhi2);
-	gspTree->Branch("jtSubJetcsvV1_1",&t_jtSubJetCSV1);
-	gspTree->Branch("jtSubJetcsvV1_2",&t_jtSubJetCSV2);
+	gspTree->Branch("jtSubJetcsvV2_1",&t_jtSubJetCSV1);
+	gspTree->Branch("jtSubJetcsvV2_2",&t_jtSubJetCSV2);
+        gspTree->Branch("jtSubJetNegCsvV2_1",&t_jtSubJetNegCSV1);
+        gspTree->Branch("jtSubJetNegCsvV2_2",&t_jtSubJetNegCSV2);
 	gspTree->Branch("jtSubJetJP_1",&t_jtSubJetJP1);
 	gspTree->Branch("jtSubJetJP_2",&t_jtSubJetJP2);
-	gspTree->Branch("minCSV",&t_minCSV);
+	gspTree->Branch("weight",&weight);
+        gspTree->Branch("minCSV",&t_minCSV);
 	gspTree->Branch("minJP",&t_minJP);
 	gspTree->Branch("jtSubJetdR",&t_jtSubJetdR);
-	gspTree->Branch("jtSubJetVtxType1",&t_jtSubJetVtxType1);
+	gspTree->Branch("jtSubJetSvtxm1",&t_jtSubJetSvtxm1);
+        gspTree->Branch("jtSubJetSvtxm2",&t_jtSubJetSvtxm2);
+        gspTree->Branch("jtSubJetVtxType1",&t_jtSubJetVtxType1);
 	gspTree->Branch("jtSubJetVtxType2",&t_jtSubJetVtxType2);
-	if(isMC){
+        gspTree->Branch("muPt",&t_muPt);
+        gspTree->Branch("DMesonChannel",&t_dMesonChannel);
+        if(isMC){
 		gspTree->Branch("refpt",&t_refpt);
-		gspTree->Branch("jtHadronFlavor",&t_jtHadronFlavor);
+		if(!doCaloJets) gspTree->Branch("jtHadronFlavor",&t_jtHadronFlavor);
+                else gspTree->Branch("refparton_flavorForB",&t_jtHadronFlavor);
 		gspTree->Branch("jtSubJetHadronFlavor1",&t_jtSubJetHadronFlavor1);
 		gspTree->Branch("jtSubJetHadronFlavor2",&t_jtSubJetHadronFlavor2);
                 gspTree->Branch("jtSubJetHadronDR1",&t_jtSubJetHadronDR1);
                 gspTree->Branch("jtSubJetHadronDR2",&t_jtSubJetHadronDR2);
+                gspTree->Branch("jtSubJetHadronPt1",&t_jtSubJetHadronPt1);
+                gspTree->Branch("jtSubJetHadronPt2",&t_jtSubJetHadronPt2);
+                gspTree->Branch("jtSubJetRefPt1",&t_jtSubJetRefPt1);
+                gspTree->Branch("jtSubJetRefPt2",&t_jtSubJetRefPt2);
+                gspTree->Branch("jtSubJetRefEta1",&t_jtSubJetRefEta1);
+                gspTree->Branch("jtSubJetRefEta2",&t_jtSubJetRefEta2);
+                gspTree->Branch("jtSubJetRefPhi1",&t_jtSubJetRefPhi1);
+                gspTree->Branch("jtSubJetRefPhi2",&t_jtSubJetRefPhi2);
         }
 	if(!ispp){
 		gspTree->Branch("hiBin",&hiBin);
 	}
 	
 	
-	std::string filelist;
-	if(ispp && isMC) filelist = "ppMC_allPthat_withJPtags.txt";
-	else if(ispp) filelist = "ppData_Jet80Trg.txt";
-      else if(isMC) filelist = "PbPbMC_qcdJetList_pthat120.txt";
-      else filelist = "PbPbData_jet80TrgList_part2.txt";
-      //else{ cout << "Not doing PbPb data yet! " << endl; exit(0); }
-      //std::string filename = "HiForestAOD.root";
-	std::string filename;
+        std::string filelist;
+        if(ispp && isMC && !isbJet) filelist = "ppMC_pythia8_muFiltered_fullSet.txt";
+        //if(ispp && isMC && !isbJet) filelist = "ppMC_pythia6_officialQCDSample.txt";
+        else if(ispp && isMC) filelist = "ppMC_Pythia6_bjets.txt";
+        else if(isMC) filelist = "PbPbMC_pthat120List_caloJet.txt";
+        else if(ispp) filelist = "ppData_Jet80Trg_withMuons.txt";
+        //else if(isMC) filelist = "ppMC_bjet_allPthat_withJPtags.txt";
+        else filelist = "PbPbData_jet80TrgList_part2.txt";
+        //else{ cout << "Not doing PbPb data yet! " << endl; exit(0); }
+        //std::string filename = "HiForestAOD.root";
+        std::string filename;
 	ifstream instr(filelist.c_str());
 	TFile *fin;
 	int ifile=0;
 	//for(int ifile=0; ifile<1; ifile++){
-	while(instr>>filename && ifile <5000){
+	while(instr>>filename && ifile <nFiles){
 		
 		ifile++;
 		fin = TFile::Open(filename.c_str());
@@ -195,10 +249,13 @@ void scanGSPevents(){
 		
 		if(!fin){ cout << "WARNING! Can't find file" << endl; continue; }
 		
-		int pvFilter, beamScrapeFilter, noiseFilter;
+		int pvFilter, beamScrapeFilter, noiseFilter, trigger;
 		int collEvtSel, hfCoincFilter;
 		float pthat;
-		TTree *skimTree = (TTree*)fin->Get("skimanalysis/HltTree");
+		TTree *hltTree = (TTree*)fin->Get("hltanalysis/HltTree");
+                if(isMC) hltTree->SetBranchAddress("HLT_AK4PFJet80_Eta5p1ForPPRef_v1",&trigger);
+                else hltTree->SetBranchAddress("HLT_AK4PFJet80_Eta5p1_v1",&trigger);
+                TTree *skimTree = (TTree*)fin->Get("skimanalysis/HltTree");
 		if(ispp){
 			skimTree->SetBranchAddress("pPAprimaryVertexFilter",&pvFilter);
 			skimTree->SetBranchAddress("pBeamScrapingFilter",&beamScrapeFilter);
@@ -213,32 +270,71 @@ void scanGSPevents(){
 		
 		TTree *evtTree = (TTree*)fin->Get("hiEvtAnalyzer/HiTree");
 		evtTree->SetBranchAddress("hiBin",&hiBin);
-		
+                evtTree->SetBranchAddress("vz",&vz);
+
+                TTree *genTree;
+                if(isMC){
+                    genTree = (TTree*)fin->Get("HiGenParticleAna/hi");
+                    genTree->SetBranchAddress("mult",&nparts);
+                    genTree->SetBranchAddress("eta",&eta);
+                    genTree->SetBranchAddress("phi",&phi);
+                    genTree->SetBranchAddress("pdg",&pdg);
+                    genTree->SetBranchAddress("motherIdx",&motherIdx);
+                }
+
 		TTree *subjetTree;
-		if(!ispp) subjetTree = (TTree*)fin->Get("akCsSoftDrop4PFJetAnalyzer/t");
+		if(!ispp && doCaloJets) subjetTree = (TTree*)fin->Get("akPu4CaloJetAnalyzer/t");
+                else if(!ispp) subjetTree = (TTree*)fin->Get("akCsSoftDrop4PFJetAnalyzer/t");
 		else if(isMC) subjetTree = (TTree*)fin->Get("akSoftDrop4PFJetAnalyzer/t");
 		else subjetTree = (TTree*)fin->Get("akSoftDrop4PFJetAnalyzer/t");
-		
+
+                cout << "subjet tree: "<< subjetTree->GetName() << endl;
+
+                int nMu;
+                float muPt[100], muEta[100], muPhi[100];
+                int trkLayerWMeas[100], pixLayerWMeas[100], isArbitrated[100];
+                float trkDxy[100], trkDz[100];
+                TTree *muTree;
+                if(doMuFilter){
+                    muTree = (TTree*)fin->Get("hltMuTree/HLTMuTree");
+                    muTree->SetBranchAddress("Glb_nptl",&nMu);
+                    muTree->SetBranchAddress("Glb_pt",muPt);
+                    muTree->SetBranchAddress("Glb_eta",muEta);
+                    muTree->SetBranchAddress("Glb_phi",muPhi);
+                    muTree->SetBranchAddress("Glb_isArbitrated",isArbitrated);
+                    muTree->SetBranchAddress("Glb_trkLayerWMeas",&trkLayerWMeas);
+                    muTree->SetBranchAddress("Glb_pixLayerWMeas",&pixLayerWMeas);
+                    muTree->SetBranchAddress("Glb_trkDxy",trkDxy);
+                    muTree->SetBranchAddress("Glb_trkDz",trkDz);
+                }
+
 		subjetTree->SetBranchAddress("nref", &nref);
 		subjetTree->SetBranchAddress("nsvtx", nsvtx);
 		subjetTree->SetBranchAddress("jtpt", jtpt);
 		subjetTree->SetBranchAddress("jteta", jteta);
 		subjetTree->SetBranchAddress("jtphi", jtphi);
+                subjetTree->SetBranchAddress("svtxm", &svtxm);
 		if(isMC){
 			subjetTree->SetBranchAddress("refpt",refpt);
 			subjetTree->SetBranchAddress("pthat",&pthat);
-			subjetTree->SetBranchAddress("jtHadronFlavor",jtHadronFlavor);
-			subjetTree->SetBranchAddress("refparton_flavorForB",refparton_flavorForB);
+			if(!doCaloJets) subjetTree->SetBranchAddress("jtHadronFlavor",jtHadronFlavor);
+                        else subjetTree->SetBranchAddress("refparton_flavorForB",jtHadronFlavor);
+                        if(!doCaloJets) subjetTree->SetBranchAddress("refparton_flavorForB",refparton_flavorForB);
 			//subjetTree->SetBranchAddress("refparton_flavorProcess",refparton_flavorProcess);
 		}
 		subjetTree->SetBranchAddress("discr_csvV2",discr_csvV2);
-		subjetTree->SetBranchAddress("discr_prob",discr_prob);
-		
+		subjetTree->SetBranchAddress("ndiscr_csvV2",ndiscr_csvV2);
+                subjetTree->SetBranchAddress("discr_prob",discr_prob);
+	
+                if(isMC) evtTree->SetBranchAddress("pthat",&pthat);
+
 		subjetTree->SetBranchAddress("jtSubJetPt", &jtSubJetPt);
 		subjetTree->SetBranchAddress("jtSubJetEta", &jtSubJetEta);
 		subjetTree->SetBranchAddress("jtSubJetPhi", &jtSubJetPhi);
-		subjetTree->SetBranchAddress("jtSubJetcsvV1",&jtSubJetCSV);
+		subjetTree->SetBranchAddress("jtSubJetcsvV2",&jtSubJetCSV);
+                subjetTree->SetBranchAddress("jtSubJetNegCsvV2",&jtSubJetNegCSV);
 		subjetTree->SetBranchAddress("jtSubJetJP",&jtSubJetJP);
+                subjetTree->SetBranchAddress("jtSubJetSvtxm",&jtSubJetSvtxm);
 		if(isMC){ 
 			subjetTree->SetBranchAddress("jtSubJetPartonFlavor", &jtSubJetPartonFlavor);
 			subjetTree->SetBranchAddress("jtSubJetHadronFlavor", &jtSubJetHadronFlavor);
@@ -250,70 +346,263 @@ void scanGSPevents(){
 			subjetTree->SetBranchAddress("jtSubJetHadronEta",&jtSubJetHadronEta);
 			subjetTree->SetBranchAddress("jtSubJetHadronPhi",&jtSubJetHadronPhi);
 			subjetTree->SetBranchAddress("jtSubJetHadronPdg",&jtSubJetHadronPdg);
+                        subjetTree->SetBranchAddress("genSubJetPt",&jtSubJetRefPt);
+                        subjetTree->SetBranchAddress("genSubJetEta",&jtSubJetRefEta);
+                        subjetTree->SetBranchAddress("genSubJetPhi",&jtSubJetRefPhi);
 		}
 		subjetTree->SetBranchAddress("jtSubJetVtxType",&jtSubJetVtxType);
-		
+	
 		for(int ievt=0; ievt<subjetTree->GetEntries(); ievt++){
 						
 			if(ievt%10000==0) cout << "at entry " << ievt << " of " << subjetTree->GetEntries() << endl;
-			subjetTree->GetEntry(ievt);
+			hltTree->GetEntry(ievt);
+                        subjetTree->GetEntry(ievt);
 			skimTree->GetEntry(ievt);
 			evtTree->GetEntry(ievt);
-			
+                        if(doMuFilter) muTree->GetEntry(ievt);
+	                if(doDMesonWeight && isMC) genTree->GetEntry(ievt);
+
 			if(ispp && (!pvFilter || !beamScrapeFilter || !noiseFilter)) continue;
 			if(!ispp && (!collEvtSel || !pvFilter || !hfCoincFilter || !noiseFilter)) continue;
-			
+		
+                        if(abs(vz)>15) continue;
+                        if(!trigger) continue;
+
 			if(nref>MAXJETS) cout << "OH NO!!!" << endl;
 			for(int ijet=0; ijet<nref; ijet++){
 				
-				if(jtpt[ijet]<30 || abs(jteta[ijet])>2.0) continue;
-				if(jtSubJetPt->at(ijet).size()<2) continue;
-				//if(jtSubJetPt->at(ijet).at(0) < 20 || jtSubJetPt->at(ijet).at(1) < 20) continue;
-				
+				//if(jtpt[ijet]<80 || abs(jteta[ijet])>2.0) continue;
+                                if(jtpt[ijet]<120 || abs(jteta[ijet])>1.3) continue;
+
+                                int ibin=0;
+                                if(isMC){
+                                    if(pthat<=80.1) continue;
+                                    if(isbJet){
+                                        while(pthat>pthatBins[ibin+1]) ibin++;
+                                        weight = bjetFracs[ibin]*(xsecs[ibin]-xsecs[ibin+1])/bjetPthatEntries[ibin];
+                                    }
+                                    else{
+                                        while(pthat>pthatBins[ibin+1]) ibin++;
+                                        if(doMuFilter) weight = mujetFracs[ibin]*(xsecs[ibin]-xsecs[ibin+1])/pthatEntries[ibin];
+                                        else weight = (xsecs[ibin]-xsecs[ibin+1])/pthatEntries[ibin];
+                                    }
+                                }
+                                else weight=1.;
+
+                                int muSel=0;
+                                if(doMuFilter){
+                                    double dr=999;
+                                    if(nMu<1) continue;
+                                    int nPassMu=0;
+                                    for(int imu=0; imu<nMu; imu++){
+                                        //use "soft" muon definition
+                                        if(!isArbitrated[imu] || trkLayerWMeas[imu] <=5 || pixLayerWMeas[imu] <= 0 || trkDxy[imu] >= 0.3 || trkDz[imu] >= 20) continue;
+                                        nPassMu++;
+                                        double dphi = TMath::ACos(TMath::Cos(jtphi[ijet]-muPhi[imu]));
+                                        double deta = jteta[ijet] - muEta[imu];
+                                        double drTemp = TMath::Sqrt(pow(dphi,2)+pow(deta,2));
+                                        if(drTemp < dr){ dr = drTemp; muSel = imu; }
+                                    }
+                                    if(!nPassMu) continue;
+                                    //if(dr>0.4) continue;
+                                }
+
+                                t_dMesonChannel=-1;
+                                double partonDR=999;
+                                int partonIdx=-1;
+                                if(doDMesonWeight && isMC){
+                                    for(int ipart=0; ipart<nparts; ipart++){
+                                        double dphi = TMath::ACos(TMath::Cos(jtphi[ijet]-phi->at(ipart)));
+                                        double deta = jteta[ijet] - eta->at(ipart);
+                                        double drTemp = TMath::Sqrt(pow(dphi,2)+pow(deta,2));
+                                        if(pdg->at(ipart)==13 && drTemp<partonDR){
+                                            int nextMother = ipart;
+                                            unsigned int loop=0;
+                                            while(motherIdx->at(nextMother).size()>0 && loop < 20){
+                                                if(motherIdx->at(nextMother).at(0)<2){ break; }
+                                                if(abs(pdg->at(motherIdx->at(nextMother).at(0)))>400 && abs(pdg->at(motherIdx->at(nextMother).at(0)))<500){
+                                                    //cout << "mother Index: "<< motherIdx->at(nextMother).at(0) << " pdg: "<< pdg->at(motherIdx->at(nextMother).at(0)) << endl;
+                                                    partonIdx=ipart;
+                                                    partonDR=drTemp;
+                                                    break;
+                                                }
+                                                else{
+                                                    nextMother = motherIdx->at(nextMother).at(0);
+                                                }
+                                                loop++;
+                                            }
+                                        }
+                                    }
+                                    if(partonIdx>-1){
+                                        if(abs(pdg->at(motherIdx->at(partonIdx).at(0)))==421) t_dMesonChannel=0;
+                                        else if(abs(pdg->at(motherIdx->at(partonIdx).at(0)))==411) t_dMesonChannel=1;
+                                        else if(abs(pdg->at(motherIdx->at(partonIdx).at(0)))==431) t_dMesonChannel=2;
+                                        if(t_dMesonChannel==0) weight*=1.37*1.13;
+                                        if(t_dMesonChannel==1) weight*=0.91*0.98;
+                                        if(t_dMesonChannel==2) weight*=0.67*1.16;
+                                    }
+                                }
+
 				t_jtpt = jtpt[ijet];
 				t_jteta = jteta[ijet];
 				t_jtphi = jtphi[ijet];
 				t_refpt = refpt[ijet];
 				t_discr_csvV2 = discr_csvV2[ijet];
-				t_jtSubJetPt1 = jtSubJetPt->at(ijet).at(0);
-				t_jtSubJetPt2 = jtSubJetPt->at(ijet).at(1);
-				t_jtSubJetEta1 = jtSubJetEta->at(ijet).at(0);
-				t_jtSubJetEta2 = jtSubJetEta->at(ijet).at(1);
-				t_jtSubJetPhi1 = jtSubJetPhi->at(ijet).at(0);
-				t_jtSubJetPhi2 = jtSubJetPhi->at(ijet).at(1);
-				t_jtSubJetCSV1 = jtSubJetCSV->at(ijet).at(0);
-				t_jtSubJetCSV2 = jtSubJetCSV->at(ijet).at(1);
-				t_jtSubJetJP1 = jtSubJetJP->at(ijet).at(0);
-				t_jtSubJetJP2 = jtSubJetJP->at(ijet).at(1);
-				t_minCSV = t_jtSubJetCSV1 > t_jtSubJetCSV2 ? t_jtSubJetCSV2 : t_jtSubJetCSV1;
-				t_jtSubJetdR = getDR(jtSubJetEta->at(ijet).at(0), jtSubJetPhi->at(ijet).at(0), jtSubJetEta->at(ijet).at(1), jtSubJetPhi->at(ijet).at(1));
-				t_jtSubJetVtxType1 = jtSubJetVtxType->at(ijet).at(0);
-				t_jtSubJetVtxType2 = jtSubJetVtxType->at(ijet).at(1);
-				if(isMC){
-					t_jtHadronFlavor = jtHadronFlavor[ijet];
-					t_jtSubJetHadronFlavor1 = jtSubJetHadronFlavor->at(ijet).at(0);
-					t_jtSubJetHadronFlavor2 = jtSubJetHadronFlavor->at(ijet).at(1);
-				
-                                        for(int isubjet=0; isubjet<2; isubjet++){
-                                            hadronDR=999;
-                                            for(int ihadron=0; ihadron<jtSubJetHadronDR->at(ijet).at(isubjet).size(); ihadron++){
-                                                int hpdg = abs(jtSubJetHadronPdg->at(ijet).at(isubjet).at(ihadron));
-                                                if(jtSubJetHadronFlavor->at(ijet).at(isubjet)==5){
-                                                    if(hpdg>500 && hpdg<600 && jtSubJetHadronDR->at(ijet).at(isubjet).at(ihadron)<t_jtSubJetHadronDR1) t_jtSubJetHadronDR1 = jtSubJetHadronDR->at(ijet).at(isubjet).at(ihadron);
+                                t_ndiscr_csvV2 = ndiscr_csvV2[ijet];
+ 				t_discr_prob = discr_prob[ijet];
+                                t_jtHadronFlavor = jtHadronFlavor[ijet];
+                                if(svtxm->at(ijet).size()>0) t_svtxm = svtxm->at(ijet).at(0);
+                                else t_svtxm = -999;
+                                if(!doCaloJets){
+                                    if(jtSubJetPt->at(ijet).size()>1){
+                                        t_jtSubJetPt1 = jtSubJetPt->at(ijet).at(0);
+                                        t_jtSubJetPt2 = jtSubJetPt->at(ijet).at(1);
+                                        t_jtSubJetEta1 = jtSubJetEta->at(ijet).at(0);
+                                        t_jtSubJetEta2 = jtSubJetEta->at(ijet).at(1);
+                                        t_jtSubJetPhi1 = jtSubJetPhi->at(ijet).at(0);
+                                        t_jtSubJetPhi2 = jtSubJetPhi->at(ijet).at(1);
+                                        t_jtSubJetCSV1 = jtSubJetCSV->at(ijet).at(0);
+                                        t_jtSubJetCSV2 = jtSubJetCSV->at(ijet).at(1);
+                                        t_jtSubJetNegCSV1 = jtSubJetNegCSV->at(ijet).at(0);
+                                        t_jtSubJetNegCSV2 = jtSubJetNegCSV->at(ijet).at(1);
+                                        t_jtSubJetJP1 = jtSubJetJP->at(ijet).at(0);
+                                        t_jtSubJetJP2 = jtSubJetJP->at(ijet).at(1);
+                                        t_minCSV = t_jtSubJetCSV1 > t_jtSubJetCSV2 ? t_jtSubJetCSV2 : t_jtSubJetCSV1;
+                                        t_minJP = t_jtSubJetJP1 > t_jtSubJetJP2 ? t_jtSubJetJP2 : t_jtSubJetJP1;
+                                        t_jtSubJetdR = getDR(jtSubJetEta->at(ijet).at(0), jtSubJetPhi->at(ijet).at(0), jtSubJetEta->at(ijet).at(1), jtSubJetPhi->at(ijet).at(1));
+                                        t_jtSubJetVtxType1 = jtSubJetVtxType->at(ijet).at(0);
+                                        t_jtSubJetVtxType2 = jtSubJetVtxType->at(ijet).at(1);
+                                        if(doMuFilter) t_muPt = muPt[muSel];
+                                        if(jtSubJetSvtxm->at(ijet).at(0).size()>0) t_jtSubJetSvtxm1 = jtSubJetSvtxm->at(ijet).at(0).at(0); //get first svtx
+                                        else t_jtSubJetSvtxm1 = -999;
+                                        if(jtSubJetSvtxm->at(ijet).at(1).size()>0) t_jtSubJetSvtxm2 = jtSubJetSvtxm->at(ijet).at(1).at(0);
+                                        else t_jtSubJetSvtxm2 = -999;
+                                        if(isMC){
+                                            if(jtSubJetRefPt->size()>ijet){
+                                                if(jtSubJetRefPt->at(ijet).size()>0){
+                                                    t_jtSubJetRefPt1 = jtSubJetRefPt->at(ijet).at(0);
+                                                    t_jtSubJetRefEta1 = jtSubJetRefEta->at(ijet).at(0);
+                                                    t_jtSubJetRefPhi1 = jtSubJetRefPhi->at(ijet).at(0);
                                                 }
-                                                else if(jtSubJetHadronFlavor->at(ijet).at(isubjet)==4){
-                                                    if(hpdg>400 && hpdg<500 && jtSubJetHadronDR->at(ijet).at(isubjet).at(ihadron)<t_jtSubJetHadronDR1) t_jtSubJetHadronDR1 = jtSubJetHadronDR->at(ijet).at(isubjet).at(ihadron);
+                                                else{
+                                                    t_jtSubJetRefPt1 = -999;
+                                                    t_jtSubJetRefEta1 = -999;
+                                                    t_jtSubJetRefPhi1 = -999;
+                                                    t_jtSubJetRefPt2 = -999;
+                                                    t_jtSubJetRefEta2 = -999;
+                                                    t_jtSubJetRefPhi2 = -999;
+                                                }
+                                                if(jtSubJetRefPt->at(ijet).size()>1){
+                                                    t_jtSubJetRefPt2 = jtSubJetRefPt->at(ijet).at(1);
+                                                    t_jtSubJetRefEta2 = jtSubJetRefEta->at(ijet).at(1);
+                                                    t_jtSubJetRefPhi2 = jtSubJetRefPhi->at(ijet).at(1);
+                                                }
+                                                else{
+                                                    t_jtSubJetRefPt2 = -999;
+                                                    t_jtSubJetRefEta2 = -999;
+                                                    t_jtSubJetRefPhi2 = -999;
                                                 }
                                             }
-                                            if(isubjet==0) t_jtSubJetHadronDR1 = hadronDR;
-                                            else t_jtSubJetHadronDR2 = hadronDR;
+                                            else{ 
+                                                cout << "WARNING! Ref size < reco size!" << endl; 
+                                                t_jtSubJetRefPt1 = -999;
+                                                t_jtSubJetRefEta1 = -999;
+                                                t_jtSubJetRefPhi1 = -999;
+                                                t_jtSubJetRefPt2 = -999;
+                                                t_jtSubJetRefEta2 = -999;
+                                                t_jtSubJetRefPhi2 = -999;
+                                            }
+                                            t_jtSubJetHadronFlavor1 = jtSubJetHadronFlavor->at(ijet).at(0);
+                                            t_jtSubJetHadronFlavor2 = jtSubJetHadronFlavor->at(ijet).at(1);
+
+                                            //get subjet-to-hadron dR
+                                            for(int isubjet=0; isubjet<2; isubjet++){
+                                                double hadronDR=999, hadronPt=-1;
+                                                for(unsigned int ihadron=0; ihadron<jtSubJetHadronDR->at(ijet).at(isubjet).size(); ihadron++){
+                                                    int hpdg = abs(jtSubJetHadronPdg->at(ijet).at(isubjet).at(ihadron));
+                                                    if(jtSubJetHadronFlavor->at(ijet).at(isubjet)==5){
+                                                        if(hpdg>500 && hpdg<600 && jtSubJetHadronDR->at(ijet).at(isubjet).at(ihadron)<hadronDR){
+                                                            hadronDR = jtSubJetHadronDR->at(ijet).at(isubjet).at(ihadron);
+                                                            hadronPt = jtSubJetHadronPt->at(ijet).at(isubjet).at(ihadron);
+                                                        }
+                                                    }
+                                                    else if(jtSubJetHadronFlavor->at(ijet).at(isubjet)==4){
+                                                        if(hpdg>400 && hpdg<500 && jtSubJetHadronDR->at(ijet).at(isubjet).at(ihadron)<hadronDR){
+                                                            hadronDR = jtSubJetHadronDR->at(ijet).at(isubjet).at(ihadron);
+                                                            hadronPt = jtSubJetHadronPt->at(ijet).at(isubjet).at(ihadron);
+                                                        }
+                                                    }
+                                                }
+                                                if(isubjet==0){
+                                                    t_jtSubJetHadronDR1 = hadronDR;
+                                                    t_jtSubJetHadronPt1 = hadronPt;
+                                                }
+                                                else{
+                                                    t_jtSubJetHadronDR2 = hadronDR;
+                                                    t_jtSubJetHadronPt2 = hadronPt;
+                                                }
+                                            }
+
+                                            if(t_jtSubJetdR>0.3 && t_minJP<0.01 && t_jtSubJetHadronFlavor1==5 && t_jtSubJetHadronFlavor2==5 && t_jtSubJetPt2/(t_jtSubJetPt1+t_jtSubJetPt2)<0.2){
+                                                //test for pathological b-ass'n cases
+                                                //std::cout << "found pathological case - investigating..." << endl;
+                                                //cout << "subjet 1 pt: "<< t_jtSubJetPt1 << " " << t_jtSubJetEta1 << " " << t_jtSubJetPhi1 << " " << t_jtSubJetJP1 << " " << t_jtSubJetCSV1 << endl;
+                                                // cout << "hadron pdg, pt, eta, phi" << endl;
+                                                for(unsigned int iparton=0; iparton<jtSubJetHadronPt->at(ijet).at(0).size(); iparton++){
+                                                    //cout << jtSubJetHadronPdg->at(ijet).at(0).at(iparton) << " " << jtSubJetHadronPt->at(ijet).at(0).at(iparton) << " " << jtSubJetHadronEta->at(ijet).at(0).at(iparton) << " " << jtSubJetHadronPhi->at(ijet).at(0).at(iparton) << endl;
+                                                }
+                                                //cout << "subjet 2 pt, eta, phi, jp, csv: "<< t_jtSubJetPt2 << " " << t_jtSubJetEta2 << " " << t_jtSubJetPhi2 << " " << t_jtSubJetJP2 << " " << t_jtSubJetCSV2 << endl;
+                                                //cout << "hadron pdg, pt, eta, phi" << endl;
+                                                for(unsigned int iparton=0; iparton<jtSubJetHadronPt->at(ijet).at(1).size(); iparton++){
+                                                    //cout << jtSubJetHadronPdg->at(ijet).at(1).at(iparton) << " " << jtSubJetHadronPt->at(ijet).at(1).at(iparton) << " " << jtSubJetHadronEta->at(ijet).at(1).at(iparton) << " " << jtSubJetHadronPhi->at(ijet).at(1).at(iparton) << endl;
+                                                }
+                                            }
                                         }
+                                    }
+                                    else{
+                                        t_jtSubJetPt1 = -999;
+                                        t_jtSubJetPt2 = -999; 
+                                        t_jtSubJetEta1 = -999;
+                                        t_jtSubJetEta2 = -999;
+                                        t_jtSubJetPhi1 = -999;
+                                        t_jtSubJetPhi2 = -999;
+                                        t_jtSubJetCSV1 = -999;
+                                        t_jtSubJetCSV2 = -999;
+                                        t_jtSubJetNegCSV1 = -999;
+                                        t_jtSubJetNegCSV2 = -999;
+                                        t_jtSubJetJP1 = -999;
+                                        t_jtSubJetJP2 = -999;
+                                        t_minCSV = -999;
+                                        t_minJP = -999;
+                                        t_jtSubJetdR = -999;
+                                        t_jtSubJetVtxType1 = -999; 
+                                        t_jtSubJetVtxType2 = -999;
+                                        t_jtSubJetSvtxm1 = -999;
+                                        t_jtSubJetSvtxm2 = -999;
+                                        if(isMC){
+                                            t_jtHadronFlavor = -999;
+                                            t_jtSubJetHadronFlavor1 = -999; 
+                                            t_jtSubJetHadronFlavor2 = -999;
+                                            t_jtSubJetHadronDR1 = 999;
+                                            t_jtSubJetHadronDR2 = 999;
+                                            t_jtSubJetRefPt1 = -999;
+                                            t_jtSubJetRefPt2 = -999;
+                                            t_jtSubJetRefEta1 = -999;
+                                            t_jtSubJetRefEta2 = -999;
+                                            t_jtSubJetRefPhi1 = -999;
+                                            t_jtSubJetRefPhi2 = -999;
+                                        }
+                                    }
                                 }
+
 				gspTree->Fill();
-				
+			
+                                if(doCaloJets) continue;
+                                if(jtSubJetPt->at(ijet).size()<2) continue;
+
 				double zg = getzg(jtSubJetPt->at(ijet).at(0), jtSubJetPt->at(ijet).at(1));
 				
-				int ibin=0;
+				ibin=0;
 				while(t_jtpt>ptBins[ibin+1]) ibin++;
 				zgSpec_ppIncl[ibin]->Fill(zg);
 				if(t_minCSV > 0.9) zgSpec_ppGSP[ibin]->Fill(zg);
@@ -333,19 +622,19 @@ void scanGSPevents(){
 					}
 					
 					//build ROC curves vs CSV
-					if(flavCat==0) allDiBjetsCut[0][icentBin]->Fill(t_minCSV);
-					if(1) allJetsCut[0][icentBin]->Fill(t_minCSV);
+					if(flavCat==0) allDiBjetsCut[0][icentBin]->Fill(t_discr_csvV2);
+					if(1) allJetsCut[0][icentBin]->Fill(t_discr_csvV2);
 					
-					if(flavCat==0 && t_jtSubJetdR>0.1) allDiBjetsCut[1][icentBin]->Fill(t_minCSV);
-					if(t_jtSubJetdR>0.1) allJetsCut[1][icentBin]->Fill(t_minCSV);
+					if(flavCat==0 && t_jtSubJetdR>0.1) allDiBjetsCut[1][icentBin]->Fill(t_discr_csvV2);
+					if(t_jtSubJetdR>0.1) allJetsCut[1][icentBin]->Fill(t_discr_csvV2);
 					
-					if(flavCat==0 && t_jtSubJetVtxType1==0 && t_jtSubJetVtxType2==0) allDiBjetsCut[2][icentBin]->Fill(t_minCSV);
-					if(t_jtSubJetVtxType1==0 && t_jtSubJetVtxType2==0) allJetsCut[2][icentBin]->Fill(t_minCSV);
+					if(flavCat==0 && t_jtSubJetVtxType1==0 && t_jtSubJetVtxType2==0) allDiBjetsCut[2][icentBin]->Fill(t_discr_csvV2);
+					if(t_jtSubJetVtxType1==0 && t_jtSubJetVtxType2==0) allJetsCut[2][icentBin]->Fill(t_discr_csvV2);
 					
-					if(flavCat==0 && t_jtSubJetdR>0.1 && t_jtSubJetVtxType1==0 && t_jtSubJetVtxType2==0) allDiBjetsCut[3][icentBin]->Fill(t_minCSV);
-					if(t_jtSubJetdR>0.1 && t_jtSubJetVtxType1==0 && t_jtSubJetVtxType2==0) allJetsCut[3][icentBin]->Fill(t_minCSV);
+					if(flavCat==0 && t_jtSubJetdR>0.1 && t_jtSubJetVtxType1==0 && t_jtSubJetVtxType2==0) allDiBjetsCut[3][icentBin]->Fill(t_discr_csvV2);
+					if(t_jtSubJetdR>0.1 && t_jtSubJetVtxType1==0 && t_jtSubJetVtxType2==0) allJetsCut[3][icentBin]->Fill(t_discr_csvV2);
 					
-					if(flavCat==0) allDiBjets[icentBin]->Fill(t_minCSV);
+					if(flavCat==0) allDiBjets[icentBin]->Fill(t_discr_csvV2);
 					
 					//build efficiency vs dR (csv>0.9)
 					if(flavCat==0) allDiBjets_dR->Fill(t_jtSubJetdR);

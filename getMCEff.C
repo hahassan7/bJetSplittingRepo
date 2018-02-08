@@ -1,25 +1,22 @@
 #include "TH1D.h"
 #include "TTree.h"
 #include "TFile.h"
-#include "TMath.h"
 
 void getMCEff(){
 	
 	const int ptBins = 2;
 	TH1D *tagged[ptBins];
 	TH1D *total[ptBins];
-	//const double xbins[9] = {0.,0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4};
-	//const double xbins[20];
+	const double xbins[9] = {0.,0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4};
 	for(int i=0; i<ptBins; i++){
-		tagged[i] = new TH1D(Form("tagged_%d",i),"",20,0,40); tagged[i]->Sumw2();
-		total[i] = new TH1D(Form("total_%d",i),"",20,0,40); total[i]->Sumw2();
+		tagged[i] = new TH1D(Form("tagged_%d",i),"",8,xbins);
+		total[i] = new TH1D(Form("total_%d",i),"",8,xbins);
 	}
 		
 	TFile *fin_mc = new TFile("gspTreeOut_ppMC_muFilteredMC_Pythia8_fullSample.root");
 	TTree *tmc = (TTree*)fin_mc->Get("gspTree");
 	
 	double jtpt, jtSubJetPt1, jtSubJetPt2, minCSV, jtSubJetdR, minJP, discr_csvV2, ndiscr_csvV2, discr_prob, svtxm;
-	double jtSubJetEta1, jtSubJetEta2, jtSubJetPhi1, jtSubJetPhi2;
 	double jtSubJetJP1, jtSubJetJP2, jtSubJetCSV1, jtSubJetCSV2, jtSubJetNegCSV1, jtSubJetNegCSV2, jtSubJetSvtxm1, jtSubJetSvtxm2;
 	int hiBin;
 	double weight;
@@ -27,10 +24,6 @@ void getMCEff(){
 	tmc->SetBranchAddress("jtpt",&jtpt);
 	tmc->SetBranchAddress("jtSubJetPt1",&jtSubJetPt1);
 	tmc->SetBranchAddress("jtSubJetPt2",&jtSubJetPt2);
-	tmc->SetBranchAddress("jtSubJetEta1",&jtSubJetEta1);
-	tmc->SetBranchAddress("jtSubJetEta2",&jtSubJetEta2);
-	tmc->SetBranchAddress("jtSubJetPhi1",&jtSubJetPhi1);
-	tmc->SetBranchAddress("jtSubJetPhi2",&jtSubJetPhi2);
 	tmc->SetBranchAddress("minCSV",&minCSV);
 	tmc->SetBranchAddress("minJP",&minJP);
 	tmc->SetBranchAddress("svtxm",&svtxm);
@@ -61,18 +54,15 @@ void getMCEff(){
 		if(jtpt<100) continue;
 		if(jtpt>140) ptBin=1;
 		
-		double dphi = TMath::ACos(TMath::Cos(jtSubJetPhi1-jtSubJetPhi2));
-		double invMass2 = 2*jtSubJetPt1*jtSubJetPt2*( TMath::CosH(jtSubJetEta1-jtSubJetEta2) - TMath::Cos(dphi));
-		
-		if(jtSubJetCSV1 > 0.8 && jtSubJetCSV2 > 0.8 && jtSubJetSvtxm1>1.5 && jtSubJetSvtxm2 > 1.5 && abs(jtSubJetHadronFlavor1)==5 && abs(jtSubJetHadronFlavor2)==5) tagged[ptBin]->Fill(sqrt(invMass2), weight);
-		if(abs(jtSubJetHadronFlavor1)==5 && abs(jtSubJetHadronFlavor2)==5) total[ptBin]->Fill(sqrt(invMass2), weight);
+		if(jtSubJetCSV1 > 0.8 && jtSubJetCSV2 > 0.8 && jtSubJetSvtxm1>1.5 && jtSubJetSvtxm2 > 1.5 && abs(jtSubJetHadronFlavor1)==5 && abs(jtSubJetHadronFlavor2)==5) tagged[ptBin]->Fill(jtSubJetdR, weight);
+		if(abs(jtSubJetHadronFlavor1)==5 && abs(jtSubJetHadronFlavor2)==5) total[ptBin]->Fill(jtSubJetdR, weight);
 	}
 	
 	for(int i=0; i<ptBins; i++){
 		tagged[i]->Divide(total[i]);
 	}
 	
-	TFile *fout = new TFile("invMassMCTagEff.root","recreate");
+	TFile *fout = new TFile("drMCTagEff.root","recreate");
 	fout->cd();
 	for(int i=0; i<ptBins; i++){
 		tagged[i]->Write();

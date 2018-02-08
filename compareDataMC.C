@@ -14,7 +14,7 @@ void compareDataMC(){
 	const bool ispp = 1;
 
 	const int nVars=9;
-	string vars[nVars] = {"jtpt", "jteta", "jtSubJetPt1", "jtSubJetPt2", "minCSV", "minJP","discr_csvV2","discr_negCSVV2","discr_prob"};
+	string vars[nVars] = {"jtpt", "jteta", "jtSubJetPt1", "jtSubJetPt2", "minCSV", "minJP","discr_csvV2","ndiscr_csvV2","discr_prob"};
 	string cuts[nVars] = {"jtpt>80 && jtpt<200 && abs(jteta)<2", "jtpt>80 && jtpt<200 && abs(jteta)<2", "jtSubJetPt1>60 && jtSubJetPt1<200 && abs(jtSubJetEta1)<2", "jtSubJetPt1>60 && jtSubJetPt1<200 && abs(jtSubJetEta1)<2", "jtSubJetPt1>60 && jtSubJetPt1<200 && jtSubJetPt2>60 && jtSubJetPt2<200 && abs(jtSubJetEta1)<2 && abs(jtSubJetEta2)<2", "jtSubJetPt1>60 && jtSubJetPt1<200 && jtSubJetPt2>60 && jtSubJetPt2<200 && abs(jtSubJetEta1)<2 && abs(jtSubJetEta2)<2", "jtpt>80 && jtpt<200 && abs(jteta)<2", "jtpt>80 && jtpt<200 && abs(jteta)<2","jtpt>80 && jtpt<200 && abs(jteta)<2"};
 	string flavorSelector[nVars] = {"jtHadronFlavor","jtHadronFlavor","jtSubJetHadronFlavor1","jtSubJetHadronFlavor2","jtSubJetHadronFlavor1","jtSubJetHadronFlavor1", "jtHadronFlavor", "jtHadronFlavor","jtHadronFlavor"};
 	string evtCuts = "";
@@ -35,7 +35,7 @@ void compareDataMC(){
 	
 	TCanvas *cc[nVars];
 	
-	TFile *fdata = new TFile("gspTreeOut_ppData_explicitJTA_JPRecalibration_pt60.root");
+	TFile *fdata = new TFile("gspTreeOut_ppData_explicitJTA_recalibJP_pt60.root");
 	TFile *fmc = new TFile("gspTreeOut_ppMC_Pythia8_explicitJTA_recalibJP_withNegCSV.root");
 	
 	TTree *tdata = (TTree*)fdata->Get("gspTree");
