@@ -28,21 +28,28 @@ using std::vector;
 const int MAXJETS=200;
 const double PI=3.1415926;
 
-const int pthatBins[8] = {50,80,100,120,170,220,280,99999};
-const double xsecs[8] = {3.778E-03, 4.412E-04, 1.511E-04, 6.147E-05, 1.018E-05, 2.477E-06, 6.160E-07, 0};
+//const int pthatBins[8] = {50,80,100,120,170,220,280,99999};
+//const double xsecs[8] = {3.778E-03, 4.412E-04, 1.511E-04, 6.147E-05, 1.018E-05, 2.477E-06, 6.160E-07, 0};
 //const int pthatEntries[7] = {176770, 195948, 193735, 191889, 179361, 194037, 265958}; //all pthats
-//const int pthatEntries[7] = {740218, 693350, 610162, 1054000, 729448, 182013, 61566}; //big qcd-jet production
-//const int pthatEntries[7] = {0, 16, 170395, 188643, 178892, 193905, 265909}; //pthat80,120,etc only, no pthat100 bin
+//const int pthatEntries[7] = {740218, 693350, 610162, 1054000, 729448, 182013, 61566}; //big qcd-jet production (no full jets)
+//const int pthatEntries[7] = {574183, 480754, 526452, 1067910, 820217, 204831, 69108}; //big qcd-jet production with full jets
+//const int pthatEntries[7] = {271792, 558570, 500232, 985696, 795315, 198557, 67224}; //big qcd-jet production with subjet PF cand id's
+//const int pthatEntries[7] = {171494, 492437, 560897, 1054710, 730146, 182688, 61740}; //big qcd-jet prod with 3.9% dropped tracks
 
-const int pthatEntries[7] = {439251, 366255, 411245, 651466, 475354, 265898, 87628}; //all pthat, pythia 6
+//const int pthatEntries[7] = {439251, 366255, 411245, 651466, 475354, 265898, 87628}; //all pthat, pythia 6
 //const int pthatEntries[8] = {0, 439251, 366255, 411245, 651466, 475354, 235375, 77559}; //pythia 6, 3 pthat220 jobs failed
 
-//const int pthatEntries[7] = {122407, 157171, 211615, 410730, 366838, 373693, 145324}; //mu filtered samples
+//const int pthatEntries[7] = {122407, 157171, 211615, 410730, 366838, 374814, 145740}; //mu filtered samples
 //const double mujetFracs[7] = {0.0247, 0.0375, 0.0480, 0.0530, 0.0691, 0.0691, 0.0691}; 
 const double mujetFracs[7] = {0.133, 0.137, 0.136, 0.137, 0.139, 0.139, 0.139};
 
 const double bjetFracs[7] = {0.058, 0.064, 0.075, 0.084, 0.084, 0.084, 0.084};
-const int bjetPthatEntries[7] = {434706, 470484, 476877, 478550, 452606, 112199, 36883};
+//const int bjetPthatEntries[7] = {470484, 360543, 116334, 478550, 452606, 112199, 36883}; //pythia 6 bjets without a pthat100 sample
+const int bjetPthatEntries[7] = {209384, 144644, 161036, 264249, 193729, 195918, 68702}; //pythia 8 b-jets
+
+const int pthatBins[2] = {50,99999}; //these three are for the extra bbbar prod
+const double xsecs[2] = {1.697E-05, 0};
+const int pthatEntries[1] = {81522};
 
 double getDR(double eta1, double phi1, double eta2, double phi2){
 	//project phi's to 0->pi
@@ -83,11 +90,13 @@ void formatHistos(TH1D **histos){
 void scanGSPevents(int nFiles=2000){
 	
 	const bool ispp = true;
-	const bool isMC = false;
+	const bool isPowheg = false;
+        const bool isMC = true;
         const bool doCaloJets = false;
         const bool isbJet = false;
-        const bool doMuFilter = false;
+        const bool doMuFilter = true;
         const bool doDMesonWeight = false;
+        const bool useRefAxis = false;
 
 	const int nPt = 4;
 	double ptBins[nPt+1] = {100, 120, 160, 250, 9999};
@@ -139,6 +148,7 @@ void scanGSPevents(int nFiles=2000){
         float pthat;
 	float vz;
         vector<vector<float> > *jtSubJetPt=0, *jtSubJetEta=0, *jtSubJetPhi=0;
+        vector<vector<float> > *refSubJetPt=0, *refSubJetEta=0, *refSubJetPhi=0;
 	vector<vector<float> > *jtSubJetPartonFlavor=0, *jtSubJetHadronFlavor=0;
 	vector<vector<float> > *jtSubJetCSV=0, *jtSubJetJP=0, *jtSubJetNegCSV=0;
         vector<vector<float> > *jtSubJetRefPt=0, *jtSubJetRefEta=0, *jtSubJetRefPhi=0;
@@ -147,6 +157,8 @@ void scanGSPevents(int nFiles=2000){
 	float jtm[MAXJETS];
 	vector<vector<float> >*svtxm=0, *svtxpt=0, *svtxdl=0, *svtxdls=0;
 	vector<vector<int> >*svtxntrk=0, *jtSubJetVtxType=0;
+
+        vector<vector<int> > *jtSubJetConstitID=0;
 
 	vector<vector<vector<float> > > *jtSubJetHadronDR=0, *jtSubJetPartonDR=0, *jtSubJetPartonPt=0, *jtSubJetPartonPdg=0;
 	vector<vector<vector<float> > > *jtSubJetHadronPt=0, *jtSubJetHadronEta=0, *jtSubJetHadronPhi=0, *jtSubJetHadronPdg=0;
@@ -161,7 +173,7 @@ void scanGSPevents(int nFiles=2000){
 
 	///*************************************************************//
 	
-	double t_jtpt, t_jteta, t_jtphi, t_discr_csvV2, t_ndiscr_csvV2, t_jtSubJetPt1, t_jtSubJetPt2, t_jtSubJetEta1, t_jtSubJetEta2, t_refpt;
+	double t_jtpt, t_jteta, t_jtphi, t_matchedJtpt, t_discr_csvV2, t_ndiscr_csvV2, t_jtSubJetPt1, t_jtSubJetPt2, t_jtSubJetEta1, t_jtSubJetEta2, t_refpt;
 	double t_jtSubJetPhi1, t_jtSubJetPhi2, t_jtSubJetCSV1, t_jtSubJetCSV2, t_jtSubJetdR, t_discr_prob;
 	double t_jtSubJetVtxType1, t_jtSubJetVtxType2, t_minCSV, t_jtSubJetJP1, t_jtSubJetJP2, t_minJP;
         double t_jtSubJetNegCSV1, t_jtSubJetNegCSV2;
@@ -169,16 +181,20 @@ void scanGSPevents(int nFiles=2000){
 	double t_jtSubJetHadronDR1, t_jtSubJetHadronDR2, t_jtSubJetHadronPt1, t_jtSubJetHadronPt2;
         int t_jtHadronFlavor, t_jtSubJetHadronFlavor1, t_jtSubJetHadronFlavor2;
         double t_jtSubJetRefPt1, t_jtSubJetRefPt2, t_jtSubJetRefEta1, t_jtSubJetRefEta2, t_jtSubJetRefPhi1, t_jtSubJetRefPhi2;
-	int hiBin, t_dMesonChannel;
+	int t_jtSubJetPFType1, t_jtSubJetPFType2;
+        int hiBin, t_dMesonChannel;
         double weight;
+        float weightF;
         double t_muPt;
+        double t_jtSubJetRefdR;
 
 	TFile *fout = new TFile("gspTreeOut.root","recreate");
 	TTree *gspTree = new TTree("gspTree","");
 	gspTree->Branch("jtpt",&t_jtpt);
 	gspTree->Branch("jteta",&t_jteta);
 	gspTree->Branch("jtphi",&t_jtphi);
-	gspTree->Branch("discr_csvV2",&t_discr_csvV2);
+	gspTree->Branch("matchedJtpt",&t_matchedJtpt);
+        gspTree->Branch("discr_csvV2",&t_discr_csvV2);
 	gspTree->Branch("ndiscr_csvV2",&t_ndiscr_csvV2);
         gspTree->Branch("discr_prob", &t_discr_prob);
         gspTree->Branch("svtxm",&t_svtxm);
@@ -198,10 +214,13 @@ void scanGSPevents(int nFiles=2000){
         gspTree->Branch("minCSV",&t_minCSV);
 	gspTree->Branch("minJP",&t_minJP);
 	gspTree->Branch("jtSubJetdR",&t_jtSubJetdR);
-	gspTree->Branch("jtSubJetSvtxm1",&t_jtSubJetSvtxm1);
+	gspTree->Branch("jtSubJetRefdR",&t_jtSubJetRefdR);
+        gspTree->Branch("jtSubJetSvtxm1",&t_jtSubJetSvtxm1);
         gspTree->Branch("jtSubJetSvtxm2",&t_jtSubJetSvtxm2);
         gspTree->Branch("jtSubJetVtxType1",&t_jtSubJetVtxType1);
 	gspTree->Branch("jtSubJetVtxType2",&t_jtSubJetVtxType2);
+        gspTree->Branch("jtSubJetPFType1",&t_jtSubJetPFType1);
+        gspTree->Branch("jtSubJetPFType2",&t_jtSubJetPFType2);
         gspTree->Branch("muPt",&t_muPt);
         gspTree->Branch("DMesonChannel",&t_dMesonChannel);
         if(isMC){
@@ -227,9 +246,14 @@ void scanGSPevents(int nFiles=2000){
 	
 	
         std::string filelist;
-        if(ispp && isMC && !isbJet) filelist = "ppMC_pythia8_muFiltered_fullSet.txt";
+        //if(ispp && isMC && !isbJet) filelist = "ppMC_pythia8_fullSet_muFiltered_withFullJets.txt";
+        //if(isPowheg) filelist = "powheg_pp5TeV_List.txt";
+        if(isPowheg) filelist = "powhegProdKurt.txt";
+        //else if(ispp && isMC && !isbJet) filelist = "Pythia8_QCDjetMC_PFcandID.txt";
+        //else if(ispp && isMC && !isbJet) filelist = "ppMC_pythia8_fullSet_muFiltered_withFullJets.txt";
         //if(ispp && isMC && !isbJet) filelist = "ppMC_pythia6_officialQCDSample.txt";
-        else if(ispp && isMC) filelist = "ppMC_Pythia6_bjets.txt";
+        else if(ispp && isMC && !isbJet) filelist = "pp_pythia8_BHadronPt50List.txt";
+        else if(ispp && isMC) filelist = "Pythia8_bFilteredList.txt";
         else if(isMC) filelist = "PbPbMC_pthat120List_caloJet.txt";
         else if(ispp) filelist = "ppData_Jet80Trg_withMuons.txt";
         //else if(isMC) filelist = "ppMC_bjet_allPthat_withJPtags.txt";
@@ -241,7 +265,8 @@ void scanGSPevents(int nFiles=2000){
 	TFile *fin;
 	int ifile=0;
 	//for(int ifile=0; ifile<1; ifile++){
-	while(instr>>filename && ifile <nFiles){
+	cout << "warning! WEIGHT is turned off!" << endl;
+        while(instr>>filename && ifile <nFiles){
 		
 		ifile++;
 		fin = TFile::Open(filename.c_str());
@@ -287,8 +312,10 @@ void scanGSPevents(int nFiles=2000){
                 else if(!ispp) subjetTree = (TTree*)fin->Get("akCsSoftDrop4PFJetAnalyzer/t");
 		else if(isMC) subjetTree = (TTree*)fin->Get("akSoftDrop4PFJetAnalyzer/t");
 		else subjetTree = (TTree*)fin->Get("akSoftDrop4PFJetAnalyzer/t");
-
-                cout << "subjet tree: "<< subjetTree->GetName() << endl;
+                TTree *fullJetTree;
+                if(!ispp && doCaloJets) fullJetTree = (TTree*)fin->Get("akPu4CaloJetAnalyzer/t");
+                else if(!ispp) fullJetTree = (TTree*)fin->Get("akCs4PFJetAnalyzer/t");
+                else fullJetTree = (TTree*)fin->Get("ak4PFJetAnalyzer/t");
 
                 int nMu;
                 float muPt[100], muEta[100], muPhi[100];
@@ -307,6 +334,13 @@ void scanGSPevents(int nFiles=2000){
                     muTree->SetBranchAddress("Glb_trkDxy",trkDxy);
                     muTree->SetBranchAddress("Glb_trkDz",trkDz);
                 }
+    
+                float fulljtpt[MAXJETS], fulljteta[MAXJETS], fulljtphi[MAXJETS];
+                int fullnref;
+                fullJetTree->SetBranchAddress("jtpt",fulljtpt);
+                fullJetTree->SetBranchAddress("jteta",fulljteta);
+                fullJetTree->SetBranchAddress("jtphi",fulljtphi);
+                fullJetTree->SetBranchAddress("nref",&fullnref);
 
 		subjetTree->SetBranchAddress("nref", &nref);
 		subjetTree->SetBranchAddress("nsvtx", nsvtx);
@@ -327,15 +361,22 @@ void scanGSPevents(int nFiles=2000){
                 subjetTree->SetBranchAddress("discr_prob",discr_prob);
 	
                 if(isMC) evtTree->SetBranchAddress("pthat",&pthat);
+                if(isPowheg) subjetTree->SetBranchAddress("weight",&weightF);
 
 		subjetTree->SetBranchAddress("jtSubJetPt", &jtSubJetPt);
-		subjetTree->SetBranchAddress("jtSubJetEta", &jtSubJetEta);
-		subjetTree->SetBranchAddress("jtSubJetPhi", &jtSubJetPhi);
+                subjetTree->SetBranchAddress("jtSubJetEta", &jtSubJetEta);
+                subjetTree->SetBranchAddress("jtSubJetPhi", &jtSubJetPhi);
+                if(isMC && useRefAxis){    
+                    subjetTree->SetBranchAddress("refSubJetPt", &refSubJetPt);
+                    subjetTree->SetBranchAddress("refSubJetEta", &refSubJetEta);
+                    subjetTree->SetBranchAddress("refSubJetPhi", &refSubJetPhi);
+                }
 		subjetTree->SetBranchAddress("jtSubJetcsvV2",&jtSubJetCSV);
                 subjetTree->SetBranchAddress("jtSubJetNegCsvV2",&jtSubJetNegCSV);
 		subjetTree->SetBranchAddress("jtSubJetJP",&jtSubJetJP);
                 subjetTree->SetBranchAddress("jtSubJetSvtxm",&jtSubJetSvtxm);
-		if(isMC){ 
+		//subjetTree->SetBranchAddress("jtSubJetConstituentsId",&jtSubJetConstitID);
+                if(isMC){ 
 			subjetTree->SetBranchAddress("jtSubJetPartonFlavor", &jtSubJetPartonFlavor);
 			subjetTree->SetBranchAddress("jtSubJetHadronFlavor", &jtSubJetHadronFlavor);
 			subjetTree->SetBranchAddress("jtSubJetHadronDR",&jtSubJetHadronDR);
@@ -346,9 +387,6 @@ void scanGSPevents(int nFiles=2000){
 			subjetTree->SetBranchAddress("jtSubJetHadronEta",&jtSubJetHadronEta);
 			subjetTree->SetBranchAddress("jtSubJetHadronPhi",&jtSubJetHadronPhi);
 			subjetTree->SetBranchAddress("jtSubJetHadronPdg",&jtSubJetHadronPdg);
-                        subjetTree->SetBranchAddress("genSubJetPt",&jtSubJetRefPt);
-                        subjetTree->SetBranchAddress("genSubJetEta",&jtSubJetRefEta);
-                        subjetTree->SetBranchAddress("genSubJetPhi",&jtSubJetRefPhi);
 		}
 		subjetTree->SetBranchAddress("jtSubJetVtxType",&jtSubJetVtxType);
 	
@@ -361,6 +399,7 @@ void scanGSPevents(int nFiles=2000){
 			evtTree->GetEntry(ievt);
                         if(doMuFilter) muTree->GetEntry(ievt);
 	                if(doDMesonWeight && isMC) genTree->GetEntry(ievt);
+                        fullJetTree->GetEntry(ievt);
 
 			if(ispp && (!pvFilter || !beamScrapeFilter || !noiseFilter)) continue;
 			if(!ispp && (!collEvtSel || !pvFilter || !hfCoincFilter || !noiseFilter)) continue;
@@ -368,14 +407,46 @@ void scanGSPevents(int nFiles=2000){
                         if(abs(vz)>15) continue;
                         if(!trigger) continue;
 
+                        if(isPowheg){
+                            if(weightF>1e6) continue;
+                        }
 			if(nref>MAXJETS) cout << "OH NO!!!" << endl;
-			for(int ijet=0; ijet<nref; ijet++){
+	
+                        //implement bijective matching to coincide with 16-006
+                        int matchedGroomToFull[MAXJETS];
+                        int matchedFullToGroom[MAXJETS];
+                        for(int ijet=0; ijet<nref; ijet++){
+                            if(jtpt[ijet]<80 || abs(jteta[ijet])>2.0) continue;
+                            double maxDR = 0.4;
+                            for(int matchedJet=0; matchedJet<fullnref; matchedJet++){
+                                if(fulljtpt[matchedJet]<50 || abs(fulljteta[matchedJet])>2.2) continue; 
+                                double dr = getDR(jteta[ijet],jtphi[ijet],fulljteta[matchedJet],fulljtphi[matchedJet]);
+                                if(dr < maxDR){
+                                    matchedGroomToFull[ijet] = matchedJet;
+                                    maxDR = dr;
+                                }
+                            }
+                        }
+                        for(int matchedJet=0; matchedJet<fullnref; matchedJet++){
+                            if(fulljtpt[matchedJet]<50 || abs(fulljteta[matchedJet])>2.2) continue;
+                            double maxDR = 0.4;
+                            for(int ijet=0; ijet<nref; ijet++){
+                                if(jtpt[ijet]<80 || abs(jteta[ijet])>2.0) continue;
+                                double dr = getDR(fulljteta[matchedJet],fulljtphi[matchedJet],jteta[ijet],jtphi[ijet]);
+                                if(dr < maxDR){
+                                    matchedFullToGroom[matchedJet] = ijet;
+                                    maxDR = dr;
+                                }
+                            }
+                        }
+                        
+                        for(int ijet=0; ijet<nref; ijet++){
 				
 				//if(jtpt[ijet]<80 || abs(jteta[ijet])>2.0) continue;
-                                if(jtpt[ijet]<120 || abs(jteta[ijet])>1.3) continue;
+                                if(jtpt[ijet]<80 || abs(jteta[ijet])>2.0) continue;
 
                                 int ibin=0;
-                                if(isMC){
+                                if(isMC && 0 && !isPowheg){
                                     if(pthat<=80.1) continue;
                                     if(isbJet){
                                         while(pthat>pthatBins[ibin+1]) ibin++;
@@ -387,7 +458,8 @@ void scanGSPevents(int nFiles=2000){
                                         else weight = (xsecs[ibin]-xsecs[ibin+1])/pthatEntries[ibin];
                                     }
                                 }
-                                else weight=1.;
+                                else if(!isPowheg) weight=2.5*7.581e-06/445955.;
+                                else weight = weightF;
 
                                 int muSel=0;
                                 if(doMuFilter){
@@ -396,6 +468,7 @@ void scanGSPevents(int nFiles=2000){
                                     int nPassMu=0;
                                     for(int imu=0; imu<nMu; imu++){
                                         //use "soft" muon definition
+                                        if(muPt[imu]<4 || muPt[imu]>400) continue;
                                         if(!isArbitrated[imu] || trkLayerWMeas[imu] <=5 || pixLayerWMeas[imu] <= 0 || trkDxy[imu] >= 0.3 || trkDz[imu] >= 20) continue;
                                         nPassMu++;
                                         double dphi = TMath::ACos(TMath::Cos(jtphi[ijet]-muPhi[imu]));
@@ -404,7 +477,7 @@ void scanGSPevents(int nFiles=2000){
                                         if(drTemp < dr){ dr = drTemp; muSel = imu; }
                                     }
                                     if(!nPassMu) continue;
-                                    //if(dr>0.4) continue;
+                                    if(dr>0.4) continue;
                                 }
 
                                 t_dMesonChannel=-1;
@@ -443,6 +516,8 @@ void scanGSPevents(int nFiles=2000){
                                     }
                                 }
 
+                                if(ijet == matchedFullToGroom[matchedGroomToFull[ijet]]) t_matchedJtpt = fulljtpt[matchedGroomToFull[ijet]];
+                                else t_matchedJtpt = -1;
 				t_jtpt = jtpt[ijet];
 				t_jteta = jteta[ijet];
 				t_jtphi = jtphi[ijet];
@@ -454,13 +529,21 @@ void scanGSPevents(int nFiles=2000){
                                 if(svtxm->at(ijet).size()>0) t_svtxm = svtxm->at(ijet).at(0);
                                 else t_svtxm = -999;
                                 if(!doCaloJets){
-                                    if(jtSubJetPt->at(ijet).size()>1){
+                                    if(jtSubJetPt->at(ijet).size()>1 && (!isMC || !useRefAxis || refSubJetPt->at(ijet).size()>1)){
                                         t_jtSubJetPt1 = jtSubJetPt->at(ijet).at(0);
                                         t_jtSubJetPt2 = jtSubJetPt->at(ijet).at(1);
                                         t_jtSubJetEta1 = jtSubJetEta->at(ijet).at(0);
                                         t_jtSubJetEta2 = jtSubJetEta->at(ijet).at(1);
                                         t_jtSubJetPhi1 = jtSubJetPhi->at(ijet).at(0);
                                         t_jtSubJetPhi2 = jtSubJetPhi->at(ijet).at(1);
+                                        if(isMC && useRefAxis){
+                                            t_jtSubJetRefPt1 = refSubJetPt->at(ijet).at(0);
+                                            t_jtSubJetRefPt2 = refSubJetPt->at(ijet).at(1);
+                                            t_jtSubJetRefEta1 = refSubJetEta->at(ijet).at(0);
+                                            t_jtSubJetRefEta2 = refSubJetEta->at(ijet).at(1);
+                                            t_jtSubJetRefPhi1 = refSubJetPhi->at(ijet).at(0);
+                                            t_jtSubJetRefPhi2 = refSubJetPhi->at(ijet).at(1);
+                                        }
                                         t_jtSubJetCSV1 = jtSubJetCSV->at(ijet).at(0);
                                         t_jtSubJetCSV2 = jtSubJetCSV->at(ijet).at(1);
                                         t_jtSubJetNegCSV1 = jtSubJetNegCSV->at(ijet).at(0);
@@ -470,15 +553,19 @@ void scanGSPevents(int nFiles=2000){
                                         t_minCSV = t_jtSubJetCSV1 > t_jtSubJetCSV2 ? t_jtSubJetCSV2 : t_jtSubJetCSV1;
                                         t_minJP = t_jtSubJetJP1 > t_jtSubJetJP2 ? t_jtSubJetJP2 : t_jtSubJetJP1;
                                         t_jtSubJetdR = getDR(jtSubJetEta->at(ijet).at(0), jtSubJetPhi->at(ijet).at(0), jtSubJetEta->at(ijet).at(1), jtSubJetPhi->at(ijet).at(1));
+                                        if(isMC && useRefAxis) t_jtSubJetRefdR = getDR(refSubJetEta->at(ijet).at(0), refSubJetPhi->at(ijet).at(0), refSubJetEta->at(ijet).at(1), refSubJetPhi->at(ijet).at(1));
+                                        else t_jtSubJetRefdR = -1;
                                         t_jtSubJetVtxType1 = jtSubJetVtxType->at(ijet).at(0);
                                         t_jtSubJetVtxType2 = jtSubJetVtxType->at(ijet).at(1);
+                                        //t_jtSubJetPFType1 = jtSubJetConstitID->at(ijet).at(0);
+                                        //t_jtSubJetPFType2 = jtSubJetConstitID->at(ijet).at(1);
                                         if(doMuFilter) t_muPt = muPt[muSel];
                                         if(jtSubJetSvtxm->at(ijet).at(0).size()>0) t_jtSubJetSvtxm1 = jtSubJetSvtxm->at(ijet).at(0).at(0); //get first svtx
                                         else t_jtSubJetSvtxm1 = -999;
                                         if(jtSubJetSvtxm->at(ijet).at(1).size()>0) t_jtSubJetSvtxm2 = jtSubJetSvtxm->at(ijet).at(1).at(0);
                                         else t_jtSubJetSvtxm2 = -999;
                                         if(isMC){
-                                            if(jtSubJetRefPt->size()>ijet){
+                                            /*if((int)jtSubJetRefPt->size()>ijet){
                                                 if(jtSubJetRefPt->at(ijet).size()>0){
                                                     t_jtSubJetRefPt1 = jtSubJetRefPt->at(ijet).at(0);
                                                     t_jtSubJetRefEta1 = jtSubJetRefEta->at(ijet).at(0);
@@ -511,7 +598,7 @@ void scanGSPevents(int nFiles=2000){
                                                 t_jtSubJetRefPt2 = -999;
                                                 t_jtSubJetRefEta2 = -999;
                                                 t_jtSubJetRefPhi2 = -999;
-                                            }
+                                            }*/
                                             t_jtSubJetHadronFlavor1 = jtSubJetHadronFlavor->at(ijet).at(0);
                                             t_jtSubJetHadronFlavor2 = jtSubJetHadronFlavor->at(ijet).at(1);
 
@@ -669,12 +756,11 @@ void scanGSPevents(int nFiles=2000){
 				}
 			}
 		}
-	}
-	
-	cout << " purity, efficiency, CSV > X" << endl;
-	for(int i=0; i<40; i++){
-		cout << purity[0][0][i] << ", " << efficiency[0][0][i] << ", " << (double)i/40. << endl;
-	}
+                cout << " purity, efficiency, CSV > X" << endl;
+                for(int i=0; i<40; i++){
+                    cout << purity[0][0][i] << ", " << efficiency[0][0][i] << ", " << (double)i/40. << endl;
+                }
+        }
 	
 	TGraph *purEffCurve_noCuts[nCent], *purEffCurve_drCut[nCent], *purEffCurve_vtxTypeCut[nCent], *purEffCurve_vtxType_drCut[nCent];
 	for(int icent=0; icent<nCent; icent++){
